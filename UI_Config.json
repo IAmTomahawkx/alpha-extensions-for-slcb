@@ -1,0 +1,10 @@
+{
+  "open_readme":{
+    "type"    : "button",
+    "label"   : "Open readme",
+    "tooltip" : "Click here to view the readme for usage and important information",
+    "function": "test",
+    "wsevent" : "",
+    "group"   : ""
+  }
+}
