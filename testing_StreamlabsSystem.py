@@ -22,13 +22,22 @@ Version = "1.0"
 Website = "https://www.fiverr.com/luissanchezdev"
 
 path = os.path.dirname(os.path.realpath(__file__))
+global test_hotkey
+test_hotkey = None
 
 # +----------------------+
 # |  Required functions  |
 # +----------------------+
-def Init(): pass  
+def Init():
+  msgbox("Try pressing Ctrl + Alt + Q after pressing OK")
+  test_hotkey = Hotkey("test hotkey","Q",["Control", "Alt"], lambda: msgbox("We have global hotkeys now!!!"))
+  test_hotkey.register()
 def Execute(data): pass
 def Tick(): pass
+def Unload():
+  global test_hotkey
+  if test_hotkey != None:
+    test_hotkey.unload()
 
 # UI Button function
 def test(): pass
@@ -43,6 +52,50 @@ def save_array_to_file(a,fp):
 # +--------------+
 # |  Extensions  |
 # +--------------+
+class Hotkey:
+  """Create your custom hotkeys to run any function you want!"""
+  def __init__(self,name,key_name,modifiers_names, callback):
+    """ key_names found in https://docs.microsoft.com/en-us/dotnet/api/system.windows.input.key?view=netframework-4.8 """
+    """ modifiers found in https://docs.microsoft.com/en-us/dotnet/api/system.windows.input.modifierkeys?view=netframework-4.8 """
+    if isinstance(modifiers_names, str): modifiers_names = [modifiers_names]
+    self.manager = AnkhBotR2.Managers.HotKeyManager.Instance
+    ClrHotkey = AnkhBotR2.Managers.GlobalHotKey
+    hotkey_ctor = clr.GetClrType(ClrHotkey).GetConstructors()[0]
+    KeyType = hotkey_ctor.GetParameters()[1].ParameterType
+    ModifierKeyType = hotkey_ctor.GetParameters()[2].ParameterType
+    
+    key_values = KeyType.GetEnumValues()
+    key = [k for k in key_values if key_name == str(k)]
+    if len(key) <= 0:
+      raise ValueError("Specified key not found. requested="+key_name)
+    key = key.pop()
+    
+    modifierkey_values = ModifierKeyType.GetEnumValues()
+    
+    m_keys = [k for k in modifierkey_values if str(k) in modifiers_names]
+    if len(m_keys) != len(modifiers_names):
+      raise ValueError(
+        "One or all of the specified modifier keys was not found. requested={0}  found={1} ".format(
+          modifiers_names, m_keys
+        )
+      )
+    m_key = m_keys.pop()
+    for m in m_keys: m_key = m_key | m
+    
+    self.hotkey = ClrHotkey(
+      name, key, m_key, callback
+    )
+    #msgbox(self.hotkey)
+  def register(self):
+    self.manager.AddHotkey(self.hotkey)
+  def unload(self):
+    """Always unload on Unload to have the correct callback"""
+    fields = get_all_fields_from_type(self.manager.GetType(),True)
+    hotkeys_list = [f for f in fields if f.Name == "Hotkeys"][0].GetValue(self.manager)
+    hotkeys_list.Remove(self.hotkey)
+    del self.hotkey
+  # hks = get_all_fields_from_type(hk_mgr.GetType(), True)[0].GetValue(hk_mgr)[0]
+
 class TwithAPI:
   def __init__(self):
     asm = AnkhBotR2.App.Current.GetType().Assembly
@@ -91,6 +144,12 @@ class TwithAPI:
   def RetrieveServers(self, channel): return self._run_method("RetrieveServers", System.Array[object]([v for k,v in (lambda: locals())().iteritems()]))
   def RunCommercial(self, time): return self._run_method("RunCommercial", System.Array[object]([v for k,v in (lambda: locals())().iteritems()]))
   def UpdateGameTitle(self, title, game): return self._run_method("UpdateGameTitle", System.Array[object]([v for k,v in (lambda: locals())().iteritems()]))
+
+def get_loaded_scripts():
+  handler = AnkhBotR2.Managers.GlobalManager.Instance.SystemHandler
+  fields = get_all_fields_from_type(handler.GetType(),True)
+  python_systems = [f for f in fields if "SystemsPython" in f.Name][0].GetValue(handler)
+  return [p.Script for p in python_systems]
 
 def print_server_message(msg):
   g_manager = AnkhBotR2.Managers.GlobalManager.Instance
@@ -184,3 +243,9 @@ def get_all_properties_from_type(t,non_public=False):
     return t.GetProperties(BindingFlags.Instance | BindingFlags.NonPublic)
   else:
     return t.GetProperties()
+
+def get_all_fields_from_type(t,non_public=False):
+  if non_public:
+    return t.GetFields(BindingFlags.Instance | BindingFlags.NonPublic)
+  else:
+    return t.GetFields()
