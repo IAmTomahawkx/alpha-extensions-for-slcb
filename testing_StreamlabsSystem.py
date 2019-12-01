@@ -22,22 +22,23 @@ Version = "1.0"
 Website = "https://www.fiverr.com/luissanchezdev"
 
 path = os.path.dirname(os.path.realpath(__file__))
-global test_hotkey
-test_hotkey = None
+global test_browsertab
+test_browsertab = None
 
 # +----------------------+
 # |  Required functions  |
 # +----------------------+
 def Init():
-  msgbox("Try pressing Ctrl + Alt + Q after pressing OK")
-  test_hotkey = Hotkey("test hotkey","Q",["Control", "Alt"], lambda: msgbox("We have global hotkeys now!!!"))
-  test_hotkey.register()
+  global test_browsertab
+  test_browsertab = BrowserTab("LS", "Luis Sanchez", "http://luissanchezdev.com")
+  test_browsertab.register()
+
 def Execute(data): pass
 def Tick(): pass
 def Unload():
-  global test_hotkey
-  if test_hotkey != None:
-    test_hotkey.unload()
+  global test_browsertab
+  if test_browsertab != None:
+    test_browsertab.unload()
 
 # UI Button function
 def test(): pass
@@ -171,6 +172,41 @@ def get_parent():
 def _run_in_ui_thread(f):
   AnkhBotR2.App.Current.Dispatcher.Invoke(System.Action(f))
 
+import clr
+
+class BrowserTab:
+  def __init__(self, icon_string, tab_title, url):
+    self._icon = icon_string
+    self._title = tab_title
+    self._url = url
+    def get_tab_collection():
+      t = AnkhBotR2.App.Current.MainWindow.GetType()
+      flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic| BindingFlags.Static
+      f_info = t.GetField("Tabs", flags)
+      self.tabs = f_info.GetValue(AnkhBotR2.App.Current.MainWindow)
+    _run_in_ui_thread(get_tab_collection)
+
+  def register(self):
+    def _register():
+      # ItemCollection
+      clr.AddReferenceToFile('CefSharp.Wpf.dll')
+      from CefSharp.Wpf import ChromiumWebBrowser
+      browser = ChromiumWebBrowser()
+      browser.Address = self._url
+
+      self.tab = clone(self.tabs.Items[0])
+      self.tab.IconTxt = self._icon
+      self.tab.Header = self._title
+      self.tab.Content = self.tab.Content.GetType()()
+      self.tab.Content.Children.Add(browser)
+      self.tabs.Items.Add(self.tab)
+      #AnkhBotR2.App.Current.MainWindow.Content.Children[0].Items.Add(self.tab)
+    _run_in_ui_thread(_register)
+  def unload(self):
+    def _unload():
+      self.tabs.Items.Remove(self.tab)
+    _run_in_ui_thread(_unload)
+
 def set_clipboard(text):
   _run_in_ui_thread(lambda: System.Windows.Forms.Clipboard.SetText(str(text)))  
 
@@ -180,6 +216,7 @@ def change_main_window_title(title):
   _run_in_ui_thread(ui_change_main_window_title)
 
 def add_browser_tab(icon_string, tab_title, url):
+  """Deprecated! Start using the BrowserTab class"""
   def ui_add_browser_tab():
     clr.AddReferenceToFile('CefSharp.Wpf.dll')
     from CefSharp.Wpf import ChromiumWebBrowser
