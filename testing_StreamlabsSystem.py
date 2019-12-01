@@ -202,7 +202,7 @@ class BrowserTab:
       self.tabs.Items.Add(self.tab)
       #AnkhBotR2.App.Current.MainWindow.Content.Children[0].Items.Add(self.tab)
     _run_in_ui_thread(_register)
-  def unload(self):
+  def __del__(self):
     def _unload():
       self.tabs.Items.Remove(self.tab)
     _run_in_ui_thread(_unload)
